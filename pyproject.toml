@@ -1,0 +1,39 @@
+[project]
+name = "avk"
+version = "0.1.0"
+description = "Ambiguity Vocoder Kraftwerk -- nocuous-ambiguity triage for standards prose (sibling to DCMK)"
+requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+# NOTE: install torch + torchvision for your CUDA from the PyTorch index (same index
+# for both), plus cupy-cuda1Xx for spaCy's GPU path. See README.
+dependencies = [
+    "beautifulsoup4",
+    "lxml",
+    "pandas",
+    "numpy",
+    "nltk",
+    "tqdm",
+    "rapidfuzz",
+    "spacy",
+    "spacy-transformers",
+    "stanza",
+    "benepar",
+    "transformers",
+    "sentencepiece",
+    "protobuf",
+    "docling",
+    "pypdf",
+    # GPU stack (install from the pytorch cu128 index, not PyPI):
+    #   torch, torchvision, cupy-cuda12x
+]
+
+[project.scripts]
+avk = "avk.run:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["avk"]

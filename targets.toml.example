@@ -1,0 +1,55 @@
+# Copy to targets.toml (kept out of git). One entry per SPEC DOCUMENT you want AVK
+# to analyze.
+#
+# Unlike a differential-test harness, AVK never fires at a running system — it READS
+# a standard's prose and ranks where it is ambiguous. So a "target" here is a
+# DOCUMENT (HTML / EPUB / PDF) plus which ingest adapter parses it. Nothing here can
+# crash a server; the only cost is CPU/GPU time.
+#
+# `kind` picks the ingest adapter:
+#   dicom  -> DocBook HTML         (adapters/dicom.py)
+#   fhir   -> published HTML site  (adapters/fhir.py)
+#   epub   -> EPUB, ITU X-series & similar (adapters/epub.py)
+#   pdf    -> any spec PDF, via Docling    (adapters/pdf.py)
+#
+# `matcher` (optional) turns on findings-overlap surfacing from an existing body of
+#   differential-test cases: "dicom" | "fhir" | "none" (default "none" = cold run,
+#   pure triage + oracle ranking).
+# `cases` (optional) is the casefile directory scripts/gen_findings.py reads to build
+#   <name>_findings.json for that matcher.
+#
+# Paths may use ~ and are expanded. The NAME in [target.NAME] is what you pass to
+# `--project`; it also names the outputs (data/<NAME>.jsonl, oracle_<NAME>.csv, ...).
+
+# --- DICOM: several DocBook HTML parts, each with its own spec label -----------------
+[target.dcmk]
+kind    = "dicom"
+matcher = "dicom"
+cases   = "~/path/to/DCMK/cases/dicom"
+[target.dcmk.sources]                       # file path -> spec label used in anchors
+"~/path/to/dicom/part05.html" = "PS3.5"
+"~/path/to/dicom/part07.html" = "PS3.7"
+
+# --- FHIR: a published HTML site, optional page allowlist ----------------------------
+[target.internoop]
+kind    = "fhir"
+spec    = "FHIR R5"
+site    = "~/path/to/fhir/spec-R5/site"
+matcher = "fhir"
+cases   = "~/path/to/interNOOP/cases/fhir"
+# pages = ["datatypes.html", "search.html"]  # omit to use the adapter's default set
+
+# --- EPUB: an ITU-style Recommendation, cold run (no cases) --------------------------
+[target.x509]
+kind = "epub"
+spec = "X.509"
+epub = "~/path/to/T-REC-X.509.epub"
+
+# --- PDF: a large spec via Docling, cold run ----------------------------------------
+[target.ooxml]
+kind            = "pdf"
+spec            = "ECMA-376-1"
+pdf             = "~/path/to/ECMA-376-Part1.pdf"
+first_page      = 1        # dot-leader TOC lines are auto-rejected; raise to skip front matter
+workers         = 3        # parallel Docling processes (~1.8 GB VRAM each)
+page_batch_size = 16       # pages per GPU layout batch
