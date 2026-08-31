@@ -50,7 +50,16 @@ def test_lexicon_chain_fallback():
     assert v == "innocuous", v
 
 
+def test_umls_min_token_len_guard():
+    """Short heads short-circuit before the worker spawns -- no scispaCy/KB needed."""
+    from avk import medical, config
+    assert medical._concepts("for") == frozenset()    # 3 chars -> dropped unqueried
+    assert medical._concepts("xml") == frozenset()
+    assert config.UMLS_MIN_TOKEN_LEN <= len("code")   # 4-char content heads still reach UMLS
+
+
 if __name__ == "__main__":
     test_classify_locus_three_valued()
     test_lexicon_chain_fallback()
+    test_umls_min_token_len_guard()
     print("ok")
