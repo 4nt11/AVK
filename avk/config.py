@@ -22,3 +22,7 @@ WEIGHTS = TriageWeights()
 TOP_N_FOR_ORACLE = 200
 NOCUOUS_SIM_THRESHOLD = 0.50    # WordNet path-sim >= this => readings coincide => innocuous
 USE_GPU = True
+
+# --- UMLS ambiguity-oracle backend (opt-in per target: oracle = "wordnet,umls") ---
+UMLS_MATCH_THRESHOLD = 0.85    # scispaCy alias char-ngram sim to accept a CUI for a head word
+UMLS_CANDIDATES = 5            # top-k CUIs considered per head word
