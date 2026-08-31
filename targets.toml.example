@@ -17,6 +17,13 @@
 #   pure triage + oracle ranking).
 # `cases` (optional) is the casefile directory scripts/gen_findings.py reads to build
 #   <name>_findings.json for that matcher.
+# `oracle` (optional) picks the lexicon(s) the ambiguity oracle uses to judge whether
+#   two competing parse-heads mean the same thing. Comma-separated, tried in order;
+#   the first that knows a pair wins:
+#     "wordnet"        (default) general-English WordNet -- right for most specs
+#     "wordnet,umls"   fall back to UMLS for biomedical jargon WordNet can't judge
+#                      (FHIR clinical profiles, etc.). Needs scispaCy + its UMLS KB;
+#                      see avk/medical.py for the pip install. First run pulls ~1 GB.
 #
 # Paths may use ~ and are expanded. The NAME in [target.NAME] is what you pass to
 # `--project`; it also names the outputs (data/<NAME>.jsonl, oracle_<NAME>.csv, ...).
@@ -35,6 +42,7 @@ cases   = "~/path/to/DCMK/cases/dicom"
 kind    = "fhir"
 spec    = "FHIR R5"
 site    = "~/path/to/fhir/spec-R5/site"
+oracle  = "wordnet,umls"                     # clinical prose -> add UMLS fallback
 matcher = "fhir"
 cases   = "~/path/to/interNOOP/cases/fhir"
 # pages = ["datatypes.html", "search.html"]  # omit to use the adapter's default set

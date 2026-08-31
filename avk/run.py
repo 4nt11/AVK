@@ -49,12 +49,13 @@ def cmd_oracle(args):
     units = list(load_units(_jsonl(proj)))
     scored = {u.uid: r for u, r in triage.score_units(units)}
     top = sorted(units, key=lambda u: scored[u.uid].score, reverse=True)[: args.top_n]
-    orc = disagree.ParserDisagreementOracle()
+    orc = disagree.ParserDisagreementOracle(lexicons=proj.oracle_lexicons)
     results = {u.uid: orc.score(u) for u in _progress(top)}
     rows = output.build_rows([(u, scored[u.uid]) for u in units],
                              oracle_results=results, matcher=proj.matcher)
     out = output.write(rows, config.DATA_DIR / f"oracle_{proj.out_stem}")
-    print(f"[{proj.name}] multi-parsed {len(top)} -> {out['csv']}")
+    print(f"[{proj.name}] multi-parsed {len(top)} (lexicons: "
+          f"{'+'.join(proj.oracle_lexicons)}) -> {out['csv']}")
 
 
 def cmd_scaffold(args):

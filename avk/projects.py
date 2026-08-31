@@ -8,7 +8,7 @@ specific standard's files; the pipeline itself never changes. See targets.toml.e
 from __future__ import annotations
 import json
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .model import SpecIngestAdapter, FindingsMatcher, NullMatcher
@@ -29,6 +29,7 @@ class Project:
     out_stem: str
     findings_path: Path
     cases: str | None = None
+    oracle_lexicons: list[str] = field(default_factory=lambda: ["wordnet"])
 
 
 def _p(path: str) -> str:
@@ -59,6 +60,16 @@ def _build_adapter(t: dict) -> SpecIngestAdapter:
     raise SystemExit(f"target has unknown kind '{kind}' (dicom|fhir|epub|pdf)")
 
 
+def _parse_oracle(t: dict) -> list[str]:
+    """`oracle = "wordnet"` (default) or `oracle = "wordnet,umls"` -> ordered lexicon list."""
+    lex = [x.strip().lower() for x in t.get("oracle", "wordnet").split(",") if x.strip()]
+    for x in lex:
+        if x not in ("wordnet", "umls"):
+            raise SystemExit(f"target oracle '{t.get('oracle')}': unknown lexicon "
+                             f"'{x}' (wordnet|umls)")
+    return lex or ["wordnet"]
+
+
 def _build_matcher(t: dict, findings_path: Path) -> FindingsMatcher:
     which = t.get("matcher", "none")
     if which == "none" or not findings_path.exists():
@@ -81,7 +92,7 @@ def get_project(name: str) -> Project:
     t = targets[name]
     findings_path = ROOT / f"{name}_findings.json"
     return Project(name, _build_adapter(t), _build_matcher(t, findings_path),
-                   name, findings_path, t.get("cases"))
+                   name, findings_path, t.get("cases"), _parse_oracle(t))
 
 
 def list_projects() -> list[str]:
