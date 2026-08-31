@@ -39,7 +39,8 @@ def _proc():
             "  (click is a spaCy-CLI dep uv's scispaCy resolve drops -- install explicitly)")
     p = subprocess.Popen(
         [str(_UMLS_PY), str(_WORKER),
-         str(config.UMLS_MATCH_THRESHOLD), str(config.UMLS_CANDIDATES)],
+         str(config.UMLS_MATCH_THRESHOLD), str(config.UMLS_CANDIDATES),
+         ",".join(sorted(config.UMLS_SEMANTIC_TYPES))],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
     # blocks through the one-time KB load; tolerate any stray stdout before READY
     while True:
@@ -54,8 +55,12 @@ def _proc():
 
 @lru_cache(maxsize=8192)
 def _concepts(word: str) -> frozenset:
-    """Top UMLS concept ids (CUIs) for a head word, via the worker; empty if OOV."""
-    if not word.strip():
+    """Top UMLS concept ids (CUIs) for a head word, via the worker; empty if OOV.
+
+    Sub-threshold-length tokens are dropped unqueried: short heads ("for", "xml", "r4")
+    char-ngram alias-match to junk CUIs, so they never reach the worker.
+    """
+    if len(word.strip()) < config.UMLS_MIN_TOKEN_LEN:
         return frozenset()
     p = _proc()
     p.stdin.write(word + "\n")
