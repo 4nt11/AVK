@@ -25,6 +25,32 @@ def test_classify_locus_three_valued():
     assert v == "none", v
 
 
+def test_lexicon_chain_fallback():
+    """A second lexicon rescues jargon WordNet can't judge -- without a real UMLS KB."""
+    thr = 0.5
+    MED = {"loinc", "snomed", "hl7v2"}         # all OOV in WordNet -> WN chain defers here
+
+    def fake_umls(a, b):                        # stand-in for medical.umls_sim
+        if a in MED and b in MED:
+            return 1.0 if a == b else 0.0       # both known; distinct concepts here
+        return None                             # OOV -> defer
+
+    sim = disagree._compose_sim([disagree._wordnet_sim, fake_umls])
+
+    # WordNet-OOV jargon the second lexicon knows as DISTINCT -> nocuous, not undetermined
+    v, dist = disagree._classify_locus(["loinc", "snomed"], thr, sim)
+    assert v == "nocuous" and dist == 1.0, (v, dist)
+
+    # one head unknown to BOTH lexicons -> still undetermined (never bluffed to nocuous)
+    v, _ = disagree._classify_locus(["loinc", "zzqwxfoo"], thr, sim)
+    assert v == "undetermined", v
+
+    # WordNet still owns general English even with a second lexicon in the chain
+    v, _ = disagree._classify_locus(["car", "automobile"], thr, sim)
+    assert v == "innocuous", v
+
+
 if __name__ == "__main__":
     test_classify_locus_three_valued()
+    test_lexicon_chain_fallback()
     print("ok")
