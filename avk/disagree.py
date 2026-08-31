@@ -36,7 +36,7 @@ def _wn():
 
 
 @lru_cache(maxsize=8192)
-def _similarity(a: str, b: str):
+def _wordnet_sim(a: str, b: str):
     """Max WordNet path similarity over synset pairs. None if either is OOV (jargon).
 
     path_similarity (not wu-palmer): wu-palmer's baseline is inflated -- almost any
@@ -60,30 +60,60 @@ def _similarity(a: str, b: str):
     return best
 
 
-def _classify_locus(heads: list[str], threshold: float):
-    """Judge one disagreement locus from its competing heads.
+# --- pluggable lexicon chain ----------------------------------------------
+# A lexicon backend answers ONE question: sim(a, b) in [0,1], or None if it does
+# not know the pair. Backends are tried in the target's declared order; the first
+# that returns non-None wins. WordNet handles general English; UMLS (opt-in) only
+# gets asked about the medical jargon WordNet returns None for.
+def _lexicon_backends(names):
+    out = []
+    for n in names:
+        if n == "wordnet":
+            out.append(_wordnet_sim)
+        elif n == "umls":
+            from .medical import umls_sim      # lazy: never imports scispaCy unless opted in
+            out.append(umls_sim)
+        else:
+            raise SystemExit(f"unknown ambiguity-oracle lexicon '{n}' (wordnet|umls)")
+    return out
+
+
+def _compose_sim(backends):
+    def sim(a, b):
+        for fn in backends:
+            s = fn(a, b)
+            if s is not None:
+                return s
+        return None
+    return sim
+
+
+_wordnet_only = _compose_sim([_wordnet_sim])
+
+
+def _classify_locus(heads: list[str], threshold: float, sim=_wordnet_only):
+    """Judge one disagreement locus from its competing heads via a lexicon `sim`.
 
     Returns (verdict, distance):
-      * "nocuous"      -- >=2 distinct heads WordNet KNOWS and they are far apart
+      * "nocuous"      -- >=2 heads some lexicon KNOWS and they are far apart
                           (closest known pair sim < threshold): readings truly differ.
       * "innocuous"    -- distinct known heads that are close (some pair sim >= threshold):
                           the readings coincide -> cosmetic parser noise.
-      * "undetermined" -- too few heads are in WordNet (domain jargon): cannot judge,
-                          a human should look. NOT silently promoted to nocuous.
-    distance = 1 - closest-known-pair similarity (0.0 when undetermined).
+      * "undetermined" -- no pair is judgeable by any lexicon (domain jargon): cannot
+                          judge, a human should look. NOT silently promoted to nocuous.
+    distance = 1 - closest-judgeable-pair similarity (0.0 when undetermined).
     """
     uniq = sorted(set(h.lower() for h in heads if h))
     if len(uniq) < 2:
         return "none", 0.0
-    known = [u for u in uniq if _wn().synsets(u)]
-    if len(known) < 2:
-        return "undetermined", 0.0
-    best = 0.0
-    for i in range(len(known)):
-        for j in range(i + 1, len(known)):
-            s = _similarity(known[i], known[j])
-            if s and s > best:
+    best = None
+    for i in range(len(uniq)):
+        for j in range(i + 1, len(uniq)):
+            s = sim(uniq[i], uniq[j])
+            if s is not None and (best is None or s > best):
                 best = s
+    if best is None:
+        return "undetermined", 0.0
     return ("innocuous" if best >= threshold else "nocuous"), (1.0 - best)
 
 
@@ -91,8 +121,10 @@ def _classify_locus(heads: list[str], threshold: float):
 class ParserDisagreementOracle:
     """Default free/local AmbiguityOracle (satisfies oracle.AmbiguityOracle)."""
 
-    def __init__(self, sim_threshold: float | None = None):
+    def __init__(self, sim_threshold: float | None = None, lexicons=None):
         self.threshold = sim_threshold if sim_threshold is not None else config.NOCUOUS_SIM_THRESHOLD
+        self.lexicons = list(lexicons) if lexicons else ["wordnet"]
+        self._sim = _compose_sim(_lexicon_backends(self.lexicons))
 
     def score(self, unit) -> OracleResult:
         dec = parsers.parse_all(unit.text)
@@ -111,7 +143,7 @@ class ParserDisagreementOracle:
             if len(set(h.lower() for h in heads.values())) < 2:
                 continue                          # all parsers agree -> not a locus
             prep_txt = next(iter(per.values()))["prep"].text
-            verdict, dist = _classify_locus(list(heads.values()), self.threshold)
+            verdict, dist = _classify_locus(list(heads.values()), self.threshold, self._sim)
             n_readings = len(set(h.lower() for h in heads.values()))
             loci_scores.append((_KIND_W["pp-attach"] * (n_readings - 1), verdict, dist))
             for name, h in heads.items():
@@ -136,7 +168,7 @@ class ParserDisagreementOracle:
             all_heads = set().union(*sets.values())
             common = set.intersection(*[set(s) for s in sets.values()])
             differing = list(all_heads - common) or list(all_heads)
-            verdict, dist = _classify_locus(differing, self.threshold)
+            verdict, dist = _classify_locus(differing, self.threshold, self._sim)
             loci_scores.append((_KIND_W["coord-scope"] * (len(set(sets.values())) - 1), verdict, dist))
             for name, s in sets.items():
                 res.readings.append(Reading(
