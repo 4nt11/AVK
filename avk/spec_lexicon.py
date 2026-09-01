@@ -29,19 +29,19 @@ def _db():
     return sqlite3.connect(f"file:{p}?mode=ro", uri=True, check_same_thread=False)
 
 
-_KIND_PLACEHOLDERS = ",".join("?" * len(config.SPEC_KINDS))
-_KINDS = tuple(sorted(config.SPEC_KINDS))
+_EXCL_PLACEHOLDERS = ",".join("?" * len(config.SPEC_EXCLUDE_KINDS))
+_EXCL = tuple(sorted(config.SPEC_EXCLUDE_KINDS))
 
 
 @lru_cache(maxsize=8192)
 def _concepts(term: str) -> frozenset:
-    """Concept ids for a term, restricted to trusted kinds (model-class names, not the
-    generic code displays). Short heads short-circuit, as in the UMLS backends."""
+    """Concept ids for a term, excluding the noisy code-display kind (see config).
+    Short heads short-circuit, as in the UMLS backends."""
     if len(term.strip()) < config.UMLS_MIN_TOKEN_LEN:
         return frozenset()
     cur = _db().execute(
-        f"SELECT DISTINCT concept_id FROM terms WHERE norm = ? AND kind IN ({_KIND_PLACEHOLDERS})",
-        (term.lower(), *_KINDS))
+        f"SELECT DISTINCT concept_id FROM terms WHERE norm = ? AND kind NOT IN ({_EXCL_PLACEHOLDERS})",
+        (term.lower(), *_EXCL))
     return frozenset(r[0] for r in cur)
 
 

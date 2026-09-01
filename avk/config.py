@@ -47,7 +47,9 @@ UMLS_INDEX_PATH = DATA_DIR.parent / "umls-data" / "umls_index.sqlite"
 
 # --- 'spec' backend: a standard's own published vocabulary (spec_lexicon.py) ---
 SPEC_LEXICON_PATH = DATA_DIR.parent / "datasets" / "fhir_r5_lexicon.sqlite"
-# Trust only the model-class names for oracle sim. The dataset also holds ~4.8k code
-# displays (kept for sharing) but they include generic words ("the", "request") that
-# collide with prose -- exactly the noise the UMLS TUI gate exists to stop.
-SPEC_KINDS = frozenset({"resource", "complex-type", "primitive-type"})
+# Trust every named concept for oracle sim EXCEPT bare code displays -- across specs
+# 'code' is the value-kind (FHIR CodeSystem displays, DICOM Code Meanings) full of generic
+# words ("the", "request") that collide with prose, the noise the UMLS TUI gate also stops.
+# Everything else (FHIR resource/complex-type/primitive-type, DICOM attribute/uid) is a
+# named concept safe to trust. The dataset still KEEPS the codes, for sharing.
+SPEC_EXCLUDE_KINDS = frozenset({"code"})
