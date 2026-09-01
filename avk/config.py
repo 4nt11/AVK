@@ -41,3 +41,6 @@ UMLS_SEMANTIC_TYPES = frozenset((
     "T038 T039 T040 T041 T042 T043 T044 T045 T032 T201 "                  # physiology
     "T074 T075 T007 T004 T005 T204"                                       # devices, organisms
 ).split())
+
+# --- full 'umls' backend: SQLite index built from a licensed UMLS install (umls.py) ---
+UMLS_INDEX_PATH = DATA_DIR.parent / "umls-data" / "umls_index.sqlite"
