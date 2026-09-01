@@ -58,8 +58,19 @@ def test_umls_min_token_len_guard():
     assert config.UMLS_MIN_TOKEN_LEN <= len("code")   # 4-char content heads still reach UMLS
 
 
+def test_norm_head_shape():
+    """Identifiers are told from prose by ORTHOGRAPHY, no per-spec word list."""
+    nh = disagree._norm_head
+    assert nh("DiagnosticReport") == "diagnostic report"   # camelCase -> split, resolvable
+    assert nh("FamilyMemberHistory") == "family member history"
+    assert nh("R4") is None and nh("r4b") is None           # version tokens dropped
+    assert nh("a.b") is None and nh("-") is None            # path / punctuation dropped
+    assert nh("modality") == "modality" and nh("turtle") == "turtle"   # prose kept
+
+
 if __name__ == "__main__":
     test_classify_locus_three_valued()
     test_lexicon_chain_fallback()
     test_umls_min_token_len_guard()
+    test_norm_head_shape()
     print("ok")
