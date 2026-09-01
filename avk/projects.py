@@ -64,9 +64,9 @@ def _parse_oracle(t: dict) -> list[str]:
     """`oracle = "wordnet"` (default) or `oracle = "wordnet,umls"` -> ordered lexicon list."""
     lex = [x.strip().lower() for x in t.get("oracle", "wordnet").split(",") if x.strip()]
     for x in lex:
-        if x not in ("wordnet", "umls"):
+        if x not in ("wordnet", "bastardized-umls", "umls"):
             raise SystemExit(f"target oracle '{t.get('oracle')}': unknown lexicon "
-                             f"'{x}' (wordnet|umls)")
+                             f"'{x}' (wordnet|bastardized-umls|umls)")
     return lex or ["wordnet"]
 
 

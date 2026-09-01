@@ -20,10 +20,14 @@
 # `oracle` (optional) picks the lexicon(s) the ambiguity oracle uses to judge whether
 #   two competing parse-heads mean the same thing. Comma-separated, tried in order;
 #   the first that knows a pair wins:
-#     "wordnet"        (default) general-English WordNet -- right for most specs
-#     "wordnet,umls"   fall back to UMLS for biomedical jargon WordNet can't judge
-#                      (FHIR clinical profiles, etc.). Needs scispaCy + its UMLS KB;
-#                      see avk/medical.py for the pip install. First run pulls ~1 GB.
+#     "wordnet"                 (default) general-English WordNet -- right for most specs
+#     "wordnet,bastardized-umls" NO LICENSE NEEDED. scispaCy's redistributable UMLS
+#                               subset (~1GB) -- a taste of UMLS for the license-less.
+#                               See avk/medical.py for the pip install.
+#     "wordnet,umls"            FULL licensed UMLS Metathesaurus (~30GB) via QuickUMLS.
+#                               Needs a UTS license + local install; see avk/umls.py.
+#                               DICOM/HL7v2/FHIR are UMLS source vocabs -> best domain
+#                               coverage for these specs.
 #
 # Paths may use ~ and are expanded. The NAME in [target.NAME] is what you pass to
 # `--project`; it also names the outputs (data/<NAME>.jsonl, oracle_<NAME>.csv, ...).

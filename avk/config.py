@@ -23,7 +23,8 @@ TOP_N_FOR_ORACLE = 200
 NOCUOUS_SIM_THRESHOLD = 0.50    # WordNet path-sim >= this => readings coincide => innocuous
 USE_GPU = True
 
-# --- UMLS ambiguity-oracle backend (opt-in per target: oracle = "wordnet,umls") ---
+# --- bastardized-umls backend: scispaCy's license-free UMLS subset (medical.py) ---
+# (the full licensed Metathesaurus lives in umls.py and reuses the TUI/min-len gates below)
 UMLS_MATCH_THRESHOLD = 0.85    # scispaCy alias char-ngram sim to accept a CUI for a head word
 UMLS_CANDIDATES = 5            # top-k CUIs considered per head word
 UMLS_MIN_TOKEN_LEN = 4         # skip sub-4-char heads ("for"/"xml"/"r4" alias-match to junk CUIs)

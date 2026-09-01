@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""UMLS lexicon backend for the ambiguity oracle (opt-in: `oracle = "wordnet,umls"`).
+"""'bastardized-umls' lexicon backend (opt-in: `oracle = "wordnet,bastardized-umls"`).
+
+The LICENSE-FREE UMLS: scispaCy's redistributable subset, so people without a UTS
+license still get a taste of what UMLS means. The full licensed Metathesaurus is a
+separate backend (umls.py, selector 'umls'); both share the TUI + min-length gates.
 
 WordNet cannot judge biomedical jargon -- every clinical head word is OOV, so those
 disagreement loci collapse to "undetermined". This backend answers the SAME yes/no the

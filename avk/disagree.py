@@ -70,11 +70,19 @@ def _lexicon_backends(names):
     for n in names:
         if n == "wordnet":
             out.append(_wordnet_sim)
+        elif n == "bastardized-umls":
+            from .medical import umls_sim      # scispaCy subset: license-free, ~1GB, lazy import
+            out.append(umls_sim)
         elif n == "umls":
-            from .medical import umls_sim      # lazy: never imports scispaCy unless opted in
+            try:
+                from .umls import umls_sim     # full licensed Metathesaurus via QuickUMLS
+            except ImportError:
+                raise SystemExit("the full 'umls' backend isn't wired yet -- use "
+                                 "'bastardized-umls' (license-free scispaCy subset) for now.")
             out.append(umls_sim)
         else:
-            raise SystemExit(f"unknown ambiguity-oracle lexicon '{n}' (wordnet|umls)")
+            raise SystemExit(f"unknown ambiguity-oracle lexicon '{n}' "
+                             f"(wordnet|bastardized-umls|umls)")
     return out
 
 
