@@ -49,6 +49,8 @@ def cmd_oracle(args):
     units = list(load_units(_jsonl(proj)))
     scored = {u.uid: r for u, r in triage.score_units(units)}
     top = sorted(units, key=lambda u: scored[u.uid].score, reverse=True)[: args.top_n]
+    if proj.spec_lexicon:                         # point the 'spec' backend at this spec's lexicon
+        config.SPEC_LEXICON_PATH = proj.spec_lexicon
     orc = disagree.ParserDisagreementOracle(lexicons=proj.oracle_lexicons)
     results = {u.uid: orc.score(u) for u in _progress(top)}
     rows = output.build_rows([(u, scored[u.uid]) for u in units],

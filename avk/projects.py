@@ -30,6 +30,7 @@ class Project:
     findings_path: Path
     cases: str | None = None
     oracle_lexicons: list[str] = field(default_factory=lambda: ["wordnet"])
+    spec_lexicon: str | None = None      # path to this spec's harvested lexicon (for oracle="...,spec")
 
 
 def _p(path: str) -> str:
@@ -91,8 +92,9 @@ def get_project(name: str) -> Project:
                          f"{', '.join(targets) or '(none)'}")
     t = targets[name]
     findings_path = ROOT / f"{name}_findings.json"
+    spec_lex = str((ROOT / t["spec_lexicon"]).resolve()) if t.get("spec_lexicon") else None
     return Project(name, _build_adapter(t), _build_matcher(t, findings_path),
-                   name, findings_path, t.get("cases"), _parse_oracle(t))
+                   name, findings_path, t.get("cases"), _parse_oracle(t), spec_lex)
 
 
 def list_projects() -> list[str]:
