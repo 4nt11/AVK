@@ -104,6 +104,9 @@ def _lexicon_backends(names):
                 raise SystemExit("the full 'umls' backend isn't wired yet -- use "
                                  "'bastardized-umls' (license-free scispaCy subset) for now.")
             out.append(umls_sim)
+        elif n == "spec":
+            from .spec_lexicon import spec_sim   # the standard's own published vocabulary
+            out.append(spec_sim)
         else:
             raise SystemExit(f"unknown ambiguity-oracle lexicon '{n}' "
                              f"(wordnet|bastardized-umls|umls)")

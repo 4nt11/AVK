@@ -44,3 +44,10 @@ UMLS_SEMANTIC_TYPES = frozenset((
 
 # --- full 'umls' backend: SQLite index built from a licensed UMLS install (umls.py) ---
 UMLS_INDEX_PATH = DATA_DIR.parent / "umls-data" / "umls_index.sqlite"
+
+# --- 'spec' backend: a standard's own published vocabulary (spec_lexicon.py) ---
+SPEC_LEXICON_PATH = DATA_DIR.parent / "datasets" / "fhir_r5_lexicon.sqlite"
+# Trust only the model-class names for oracle sim. The dataset also holds ~4.8k code
+# displays (kept for sharing) but they include generic words ("the", "request") that
+# collide with prose -- exactly the noise the UMLS TUI gate exists to stop.
+SPEC_KINDS = frozenset({"resource", "complex-type", "primitive-type"})
