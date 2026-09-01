@@ -68,9 +68,22 @@ def test_norm_head_shape():
     assert nh("modality") == "modality" and nh("turtle") == "turtle"   # prose kept
 
 
+def test_spec_lexicon():
+    """The spec's own vocabulary resolves the FHIR resource names UMLS/WordNet lack."""
+    from pathlib import Path
+    from avk import config
+    if not Path(config.SPEC_LEXICON_PATH).exists():
+        return                                             # dataset not built here; skip
+    from avk import spec_lexicon as s
+    assert s.spec_sim("diagnostic report", "observation") == 0.0   # distinct FHIR resources
+    assert s.spec_sim("observation", "observation") == 1.0
+    assert s._concepts("qwzznotaterm") == frozenset()              # OOV -> empty
+
+
 if __name__ == "__main__":
     test_classify_locus_three_valued()
     test_lexicon_chain_fallback()
     test_umls_min_token_len_guard()
     test_norm_head_shape()
+    test_spec_lexicon()
     print("ok")
