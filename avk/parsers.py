@@ -11,6 +11,7 @@ bracketing. Everything is keyed by CHARACTER OFFSET so the four tokenizations st
 comparable in disagree.py -- that cross-formalism comparison is the whole point.
 """
 from __future__ import annotations
+import gc
 import warnings
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -261,4 +262,63 @@ def parse_all(sent: str) -> dict[str, Decisions]:
         except Exception as e:  # noqa
             out[name] = Decisions(name)
             out[name].error = repr(e)  # type: ignore
+    return out
+
+
+# ---------------------------------------------------------------------------
+# low-memory (parser-major) pass -- one model resident at a time
+# ---------------------------------------------------------------------------
+# The four models are lru_cache singletons; by default all four stay co-resident
+# for a whole run (peak RAM/VRAM = their SUM). parse_all_sequential trades that for
+# a single-model footprint by loading one parser, sweeping every sentence, then
+# evicting it before the next -- for machines that OOM loading all four at once.
+_LOADERS = {
+    "spacy-trf": _spacy_trf,
+    "stanza-dep": _stanza_dep,
+    "benepar": _benepar,
+    "stanza-con": _stanza_con,
+}
+
+
+def _free_gpu() -> None:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa -- torch absent / CPU-only: nothing to hand back
+        pass
+
+
+def _unload(name: str) -> None:
+    """Drop a parser's cached model and hand its memory back to the OS/GPU."""
+    loader = _LOADERS.get(name)
+    if loader is not None:
+        loader.cache_clear()
+    gc.collect()
+    _free_gpu()
+
+
+def parse_all_sequential(sentences, progress=None) -> list[dict]:
+    """Parser-MAJOR sweep: load ONE model, parse every sentence, unload it, next.
+
+    Same total parse work as [parse_all(s) for s in sentences] and an identical
+    result shape (one {parser: Decisions} dict per sentence, index-aligned to
+    `sentences`) -- but peak memory holds a single parser plus the small Decisions
+    buffer, not all four models at once. `progress`, if given, is called as
+    progress(iterable, desc) -> iterable to wrap each parser's sweep (e.g. tqdm).
+
+    Batching (feeding many sentences per model call) is a separate, orthogonal
+    speedup that slots into this per-parser sweep later; kept out here on purpose.
+    """
+    out: list[dict] = [dict() for _ in sentences]
+    for name, fn in _ADAPTERS.items():
+        seq = progress(sentences, name) if progress is not None else sentences
+        for i, sent in enumerate(seq):
+            try:
+                out[i][name] = fn(sent)
+            except Exception as e:  # noqa -- one parser erroring != sink the sentence
+                d = Decisions(name)
+                d.error = repr(e)  # type: ignore
+                out[i][name] = d
+        _unload(name)              # free this model before loading the next
     return out

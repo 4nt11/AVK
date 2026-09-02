@@ -52,7 +52,10 @@ def cmd_oracle(args):
     if proj.spec_lexicon:                         # point the 'spec' backend at this spec's lexicon
         config.SPEC_LEXICON_PATH = proj.spec_lexicon
     orc = disagree.ParserDisagreementOracle(lexicons=proj.oracle_lexicons)
-    results = {u.uid: orc.score(u) for u in _progress(top)}
+    if args.sequence:
+        results = orc.score_sequential(top, progress=_pbar)
+    else:
+        results = {u.uid: orc.score(u) for u in _progress(top)}
     rows = output.build_rows([(u, scored[u.uid]) for u in units],
                              oracle_results=results, matcher=proj.matcher)
     out = output.write(rows, config.DATA_DIR / f"oracle_{proj.out_stem}")
@@ -81,6 +84,15 @@ def _progress(seq):
         return seq
 
 
+def _pbar(seq, desc):
+    """Labeled progress wrapper for the per-parser sweep in --sequence mode."""
+    try:
+        from tqdm import tqdm
+        return tqdm(seq, desc=desc)
+    except Exception:
+        return seq
+
+
 def _print_sample(sample):
     print("\n=== TOP FLAGGED (triage sanity-check) ===")
     for unit, res in sample:
@@ -102,6 +114,9 @@ def main():
             p.add_argument("--sample", type=int, default=0)
         if cmd == "oracle":
             p.add_argument("--top-n", type=int, default=config.TOP_N_FOR_ORACLE)
+            p.add_argument("--sequence", action="store_true",
+                           help="load one parser model at a time (lower peak RAM/VRAM; "
+                                "for machines that OOM loading all four parsers at once)")
         if cmd == "scaffold":
             p.add_argument("--limit", type=int, default=50)
             p.add_argument("--all-verdicts", action="store_true",

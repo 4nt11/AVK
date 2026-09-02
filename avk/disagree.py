@@ -162,7 +162,19 @@ class ParserDisagreementOracle:
         self._sim = _compose_sim(_lexicon_backends(self.lexicons))
 
     def score(self, unit) -> OracleResult:
-        dec = parsers.parse_all(unit.text)
+        return self.score_from_decisions(unit, parsers.parse_all(unit.text))
+
+    def score_sequential(self, units, progress=None) -> dict:
+        """Low-memory oracle pass: one parser model resident at a time
+        (see parsers.parse_all_sequential). Returns {uid: OracleResult},
+        identical to {u.uid: self.score(u) ...} but at single-model peak memory."""
+        units = list(units)
+        decs = parsers.parse_all_sequential([u.text for u in units], progress=progress)
+        return {u.uid: self.score_from_decisions(u, d) for u, d in zip(units, decs)}
+
+    def score_from_decisions(self, unit, dec) -> OracleResult:
+        """Score one unit from already-computed parser Decisions (the comparison
+        logic; shared by the default per-sentence path and the sequential path)."""
         res = OracleResult(uid=unit.uid)
         loci_scores = []
 
