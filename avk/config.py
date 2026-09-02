@@ -46,7 +46,10 @@ UMLS_SEMANTIC_TYPES = frozenset((
 UMLS_INDEX_PATH = DATA_DIR.parent / "umls-data" / "umls_index.sqlite"
 
 # --- 'spec' backend: a standard's own published vocabulary (spec_lexicon.py) ---
+# Local file if present (a fresh build wins); otherwise fetched by filename from the HF
+# dataset repo and cached in the standard HF cache (~/.cache/huggingface).
 SPEC_LEXICON_PATH = DATA_DIR.parent / "avk-datasets" / "fhir_r5_lexicon.sqlite"
+SPEC_HF_REPO = "4nt11/avk-datasets"
 # Trust every named concept for oracle sim EXCEPT bare code displays -- across specs
 # 'code' is the value-kind (FHIR CodeSystem displays, DICOM Code Meanings) full of generic
 # words ("the", "request") that collide with prose, the noise the UMLS TUI gate also stops.

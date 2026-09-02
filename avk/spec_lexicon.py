@@ -21,11 +21,15 @@ from . import config
 def _db():
     p = Path(config.SPEC_LEXICON_PATH)
     if not p.exists():
-        raise SystemExit(
-            "the 'spec' backend needs its lexicon index. Build it from the spec's "
-            "published definitions:\n"
-            f"  .venv/bin/python scripts/build_spec_lexicon.py <definitions.json.zip> "
-            f"{p.with_suffix('')}")
+        # not built locally -> pull from the HF dataset repo (cached in the HF cache)
+        try:
+            from huggingface_hub import hf_hub_download
+        except ImportError:
+            raise SystemExit(
+                f"{p} not found. Either build it (scripts/build_spec_lexicon.py / "
+                "build_dicom_lexicon.py) or `pip install huggingface_hub` to fetch it "
+                f"from {config.SPEC_HF_REPO}.")
+        p = Path(hf_hub_download(config.SPEC_HF_REPO, p.name, repo_type="dataset"))
     return sqlite3.connect(f"file:{p}?mode=ro", uri=True, check_same_thread=False)
 
 

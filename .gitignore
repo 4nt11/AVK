@@ -1,6 +1,8 @@
 .venv/
 .venv-umls/
 umls-data/
+avk-datasets/*.sqlite
+avk-datasets/*.jsonl
 __pycache__/
 *.egg-info/
 data/
