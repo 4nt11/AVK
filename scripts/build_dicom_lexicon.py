@@ -13,7 +13,7 @@ Two sources, one robust + one best-effort:
 DICOM is published freely by NEMA -> redistributable dataset. Keywords are camelCase, so
 avk.disagree._norm_head-style normalization lets an oracle head 'pixel data' hit 'PixelData'.
 
-  .venv/bin/python scripts/build_dicom_lexicon.py <dir with part*.html> datasets/dicom_lexicon
+  .venv/bin/python scripts/build_dicom_lexicon.py <dir with part*.html> avk-datasets/dicom_lexicon
 """
 import json
 import re

@@ -11,7 +11,7 @@ Names are normalized the SAME way avk.disagree._norm_head normalizes parse heads
 (camelCase -> spaced, lowercased), so an oracle head 'diagnostic report' matches the
 harvested 'DiagnosticReport'. Two heads share a concept_id => same concept.
 
-  .venv/bin/python scripts/build_spec_lexicon.py <definitions.json.zip> datasets/fhir_r5_lexicon
+  .venv/bin/python scripts/build_spec_lexicon.py <definitions.json.zip> avk-datasets/fhir_r5_lexicon
 """
 import json
 import re

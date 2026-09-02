@@ -33,7 +33,7 @@
 #                               DICOM PixelData) that no general lexicon has.
 # `spec_lexicon` (needed when oracle includes "spec") path to this spec's harvested lexicon
 #   SQLite, relative to the repo root. Build it: scripts/build_spec_lexicon.py (FHIR) or
-#   scripts/build_dicom_lexicon.py (DICOM). e.g. "datasets/dicom_lexicon.sqlite".
+#   scripts/build_dicom_lexicon.py (DICOM). e.g. "avk-datasets/dicom_lexicon.sqlite".
 #
 # Paths may use ~ and are expanded. The NAME in [target.NAME] is what you pass to
 # `--project`; it also names the outputs (data/<NAME>.jsonl, oracle_<NAME>.csv, ...).
