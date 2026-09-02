@@ -1,16 +1,23 @@
 # AVK — Ambiguity Vocoder Kraftwerk
 
-A local, free-tooling pipeline that flags **nocuous ambiguity** in a technical
-standard's natural-language text — passages underspecified enough that independent
-implementations could read them differently — so differential-conformance effort
-can be aimed where the prose is actually vague, instead of testing the whole
-standard uniformly. It finds the ambiguities and *vocodes* them into test-case
+A local, free-tooling pipeline built for the documents that break human review:
+**large, committee-authored, normative standards** — the hundred-to-thousand-page
+specifications that live for decades, where clause 6.2 quietly contradicts clause
+2.1.28.0.1 and no single person has ever read both closely. In prose that size,
+**nocuous ambiguity** — a passage underspecified enough that independent
+implementations could reasonably read it differently — isn't a typo; it's a
+conformance liability that ships in real products. AVK finds those passages so
+differential-conformance effort can be aimed where the text is actually vague,
+instead of testing the whole standard uniformly, and *vocodes* them into test-case
 scaffolds (stage 5).
 
 It's standard-agnostic: point an ingest adapter at DICOM, HL7 FHIR, an ITU
 Recommendation, ECMA-376, IEEE 11073 — anything shipped as HTML, EPUB, or PDF —
 and the same engine runs. A new standard is one adapter + one matcher + one
-registry entry.
+registry entry. The scale is the point: the bigger and more committee-shaped the
+prose, the more it pays off. Smaller documents (design docs, threat models,
+requirement files) ingest fine too — there's a Markdown adapter — but they're a
+convenience, not the mission.
 
 ---
 
