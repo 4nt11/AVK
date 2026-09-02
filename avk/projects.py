@@ -16,6 +16,7 @@ from .adapters.dicom import DicomDocBookAdapter, DicomFindingsMatcher
 from .adapters.fhir import FhirHtmlAdapter, FhirFindingsMatcher
 from .adapters.epub import EpubClauseAdapter
 from .adapters.pdf import PdfDoclingAdapter
+from .adapters.markdown import MarkdownAdapter
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGETS = ROOT / "targets.toml"
@@ -58,7 +59,11 @@ def _build_adapter(t: dict) -> SpecIngestAdapter:
                                  chunk=t.get("chunk", 250),
                                  page_batch_size=t.get("page_batch_size", 16),
                                  workers=t.get("workers", 1))
-    raise SystemExit(f"target has unknown kind '{kind}' (dicom|fhir|epub|pdf)")
+    if kind == "markdown":
+        return MarkdownAdapter(_p(t["dir"]), t.get("spec", "spec"),
+                               min_chars=t.get("min_chars", 25),
+                               glob=t.get("glob", "**/*.md"))
+    raise SystemExit(f"target has unknown kind '{kind}' (dicom|fhir|epub|pdf|markdown)")
 
 
 def _parse_oracle(t: dict) -> list[str]:
