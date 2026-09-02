@@ -209,6 +209,7 @@ python scripts/gen_findings.py <project>
 avk ingest   --project <project>
 avk triage   --project <project> --sample 12      # peek at the top flags
 avk oracle   --project <project> --top-n 1000     # deep-parse the shortlist
+avk oracle   --project <project> --top-n 1000 --sequence   # ^ low peak VRAM/RAM
 
 # stage 5 — turn the ranked ambiguities into test-case scaffolds
 avk scaffold --project <project> --limit 50       # -> data/scaffold_<project>/*.toml
@@ -223,6 +224,21 @@ cases.
 it to cover your high-confidence triage band rather than an arbitrary cutoff;
 running the oracle on *everything* is counterproductive (parser disagreement is
 near-universal on any complex sentence, which drowns the signal).
+
+**`--sequence`** trades run structure for peak memory. By default the four parsers
+(spaCy-trf + Stanza×2 + benepar) load once and stay **co-resident** for the whole
+oracle stage — fastest, but peak memory is their sum, which OOMs smaller cards.
+With `--sequence` the oracle loads **one parser at a time**, sweeps every unit,
+frees it, then loads the next; peak memory holds a single model instead of four.
+Output is byte-identical either way. Measured on `dcmk --top-n 50`, RTX 5060 (8 GB):
+
+| mode | peak VRAM | parser-attributable | result |
+|------|-----------|---------------------|--------|
+| default | 3191 MiB | ~2095 MiB | — |
+| `--sequence` | 2308 MiB | ~1212 MiB | identical CSV |
+
+~42% less parser VRAM, no measurable slowdown. Reach for it when the default
+stage OOMs at model-load time; leave it off if everything already fits.
 
 ---
 
