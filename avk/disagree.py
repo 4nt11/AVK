@@ -164,12 +164,14 @@ class ParserDisagreementOracle:
     def score(self, unit) -> OracleResult:
         return self.score_from_decisions(unit, parsers.parse_all(unit.text))
 
-    def score_sequential(self, units, progress=None) -> dict:
+    def score_sequential(self, units, batch_size: int = 1, progress=None) -> dict:
         """Low-memory oracle pass: one parser model resident at a time
         (see parsers.parse_all_sequential). Returns {uid: OracleResult},
-        identical to {u.uid: self.score(u) ...} but at single-model peak memory."""
+        identical to {u.uid: self.score(u) ...} but at single-model peak memory.
+        batch_size > 1 parses many sentences per model call (faster on a GPU)."""
         units = list(units)
-        decs = parsers.parse_all_sequential([u.text for u in units], progress=progress)
+        decs = parsers.parse_all_sequential([u.text for u in units],
+                                            batch_size=batch_size, progress=progress)
         return {u.uid: self.score_from_decisions(u, d) for u, d in zip(units, decs)}
 
     def score_from_decisions(self, unit, dec) -> OracleResult:

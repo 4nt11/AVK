@@ -240,6 +240,24 @@ Output is byte-identical either way. Measured on `dcmk --top-n 50`, RTX 5060 (8 
 ~42% less parser VRAM, no measurable slowdown. Reach for it when the default
 stage OOMs at model-load time; leave it off if everything already fits.
 
+**`--batch-size N`** parses N sentences per model call (spaCy `nlp.pipe`, Stanza
+bulk) instead of one at a time — a real speedup on a GPU. It implies the
+one-model-at-a-time sweep, so you get batched speed *and* single-model peak
+memory in one pass; larger N is faster but raises peak activation VRAM (tune it
+down if it OOMs). Measured on `dcmk --top-n 200`, RTX 5060 (8 GB):
+
+| mode | wall time | peak VRAM | ranking / verdicts / scores |
+|------|-----------|-----------|------------------------------|
+| `--sequence` (batch 1) | 58.5 s | ~1212 MiB | reference |
+| `--batch-size 32` | 38.3 s | ~2339 MiB | **identical** |
+
+The default is `1` (bit-exact reproducible). Batched transformer inference is not
+bit-reproducible on borderline cases: verdicts, scores, `n_loci` and the ranking
+came out identical to batch-1, but the display-only `divergent_readings` string
+wobbled on ~1% of parsed units (observed: a trailing-token tokenization variant
+on identifiers, which scoring drops anyway). Use it for speed on a capable GPU;
+keep the default when you need byte-identical output across runs.
+
 ---
 
 ## Verdict semantics (stage 3)

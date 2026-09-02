@@ -52,8 +52,9 @@ def cmd_oracle(args):
     if proj.spec_lexicon:                         # point the 'spec' backend at this spec's lexicon
         config.SPEC_LEXICON_PATH = proj.spec_lexicon
     orc = disagree.ParserDisagreementOracle(lexicons=proj.oracle_lexicons)
-    if args.sequence:
-        results = orc.score_sequential(top, progress=_pbar)
+    # batching only exists in the parser-major sweep, so --batch-size implies it
+    if args.sequence or args.batch_size > 1:
+        results = orc.score_sequential(top, batch_size=args.batch_size, progress=_pbar)
     else:
         results = {u.uid: orc.score(u) for u in _progress(top)}
     rows = output.build_rows([(u, scored[u.uid]) for u in units],
@@ -117,6 +118,10 @@ def main():
             p.add_argument("--sequence", action="store_true",
                            help="load one parser model at a time (lower peak RAM/VRAM; "
                                 "for machines that OOM loading all four parsers at once)")
+            p.add_argument("--batch-size", type=int, default=1,
+                           help="parse N sentences per model call (faster on a GPU; "
+                                "implies the one-model-at-a-time sweep). Higher = faster "
+                                "but more peak VRAM; tune down if it OOMs. Default 1.")
         if cmd == "scaffold":
             p.add_argument("--limit", type=int, default=50)
             p.add_argument("--all-verdicts", action="store_true",

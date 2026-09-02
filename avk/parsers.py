@@ -75,8 +75,7 @@ def _stanza_con():
 # ---------------------------------------------------------------------------
 # dependency adapters
 # ---------------------------------------------------------------------------
-def _spacy_decisions(sent: str) -> Decisions:
-    doc = _spacy_trf()(sent)
+def _spacy_from_doc(doc) -> Decisions:
     d = Decisions("spacy-trf")
     for t in doc:
         if t.dep_ == "prep":                       # PP head = the token prep depends on
@@ -89,8 +88,15 @@ def _spacy_decisions(sent: str) -> Decisions:
     return d
 
 
-def _stanza_dep_decisions(sent: str) -> Decisions:
-    s = _stanza_dep()(sent).sentences[0]
+def _spacy_decisions(sent: str) -> Decisions:
+    return _spacy_from_doc(_spacy_trf()(sent))
+
+
+def _spacy_batch(sents: list[str]) -> list[Decisions]:
+    return [_spacy_from_doc(doc) for doc in _spacy_trf().pipe(sents)]
+
+
+def _stanza_dep_from_sentence(s) -> Decisions:
     words = s.words
     by_id = {w.id: w for w in words}
     d = Decisions("stanza-dep")
@@ -108,6 +114,16 @@ def _stanza_dep_decisions(sent: str) -> Decisions:
                 d.coord[w.start_char] = {"cc": Dep(w.text, w.start_char),
                                          "conj": [Dep(c.text, c.start_char) for c in conj]}
     return d
+
+
+def _stanza_dep_decisions(sent: str) -> Decisions:
+    return _stanza_dep_from_sentence(_stanza_dep()(sent).sentences[0])
+
+
+def _stanza_dep_batch(sents: list[str]) -> list[Decisions]:
+    from stanza import Document
+    out = _stanza_dep()([Document([], text=s) for s in sents])   # bulk: one batched pass
+    return [_stanza_dep_from_sentence(o.sentences[0]) for o in out]
 
 
 # ---------------------------------------------------------------------------
@@ -224,9 +240,8 @@ def _constituency_decisions(parser_name, root: _Node, offsets: list[int], texts:
     return d
 
 
-def _benepar_decisions(sent: str) -> Decisions:
+def _benepar_from_doc(doc) -> Decisions:
     from nltk import Tree
-    doc = _benepar()(sent)
     span = list(doc.sents)[0]
     root = _from_nltk(Tree.fromstring(span._.parse_string), [0])
     toks = [span[i] for i in range(len(span))]
@@ -235,13 +250,30 @@ def _benepar_decisions(sent: str) -> Decisions:
     return _constituency_decisions("benepar", root, offsets, texts)
 
 
-def _stanza_con_decisions(sent: str) -> Decisions:
+def _benepar_decisions(sent: str) -> Decisions:
+    return _benepar_from_doc(_benepar()(sent))
+
+
+def _benepar_batch(sents: list[str]) -> list[Decisions]:
+    return [_benepar_from_doc(doc) for doc in _benepar().pipe(sents)]
+
+
+def _stanza_con_from_sentence(s) -> Decisions:
     from nltk import Tree
-    s = _stanza_con()(sent).sentences[0]
     root = _from_nltk(Tree.fromstring(str(s.constituency)), [0])
     offsets = [w.start_char for w in s.words]
     texts = [w.text for w in s.words]
     return _constituency_decisions("stanza-con", root, offsets, texts)
+
+
+def _stanza_con_decisions(sent: str) -> Decisions:
+    return _stanza_con_from_sentence(_stanza_con()(sent).sentences[0])
+
+
+def _stanza_con_batch(sents: list[str]) -> list[Decisions]:
+    from stanza import Document
+    out = _stanza_con()([Document([], text=s) for s in sents])   # bulk: one batched pass
+    return [_stanza_con_from_sentence(o.sentences[0]) for o in out]
 
 
 _ADAPTERS = {
@@ -249,6 +281,15 @@ _ADAPTERS = {
     "stanza-dep": _stanza_dep_decisions,
     "benepar": _benepar_decisions,
     "stanza-con": _stanza_con_decisions,
+}
+
+# batched forms (index-aligned list in -> list out); same Decisions as _ADAPTERS
+# per sentence, proven doc-identical. Used by parse_all_sequential(batch_size>1).
+_BATCH_ADAPTERS = {
+    "spacy-trf": _spacy_batch,
+    "stanza-dep": _stanza_dep_batch,
+    "benepar": _benepar_batch,
+    "stanza-con": _stanza_con_batch,
 }
 
 
@@ -298,7 +339,13 @@ def _unload(name: str) -> None:
     _free_gpu()
 
 
-def parse_all_sequential(sentences, progress=None) -> list[dict]:
+def _err(name: str, exc) -> Decisions:
+    d = Decisions(name)
+    d.error = repr(exc)  # type: ignore
+    return d
+
+
+def parse_all_sequential(sentences, batch_size: int = 1, progress=None) -> list[dict]:
     """Parser-MAJOR sweep: load ONE model, parse every sentence, unload it, next.
 
     Same total parse work as [parse_all(s) for s in sentences] and an identical
@@ -307,18 +354,40 @@ def parse_all_sequential(sentences, progress=None) -> list[dict]:
     buffer, not all four models at once. `progress`, if given, is called as
     progress(iterable, desc) -> iterable to wrap each parser's sweep (e.g. tqdm).
 
-    Batching (feeding many sentences per model call) is a separate, orthogonal
-    speedup that slots into this per-parser sweep later; kept out here on purpose.
+    batch_size > 1 feeds the model `batch_size` sentences per call (spaCy nlp.pipe,
+    Stanza bulk) -- big speedup on a GPU, at the cost of higher peak activation
+    memory (tune it down if a large batch re-OOMs). Batched output is proven
+    doc-identical to the per-sentence path; a batch that raises falls back to
+    per-sentence so one bad sentence never sinks its whole chunk.
     """
     out: list[dict] = [dict() for _ in sentences]
-    for name, fn in _ADAPTERS.items():
-        seq = progress(sentences, name) if progress is not None else sentences
-        for i, sent in enumerate(seq):
-            try:
-                out[i][name] = fn(sent)
-            except Exception as e:  # noqa -- one parser erroring != sink the sentence
-                d = Decisions(name)
-                d.error = repr(e)  # type: ignore
-                out[i][name] = d
-        _unload(name)              # free this model before loading the next
+    n = len(sentences)
+    for name in _ADAPTERS:                          # keep PARSERS order
+        if batch_size <= 1:                         # per-sentence path (unchanged)
+            single = _ADAPTERS[name]
+            seq = progress(sentences, name) if progress is not None else sentences
+            for i, sent in enumerate(seq):
+                try:
+                    out[i][name] = single(sent)
+                except Exception as e:  # noqa -- one parser erroring != sink the sentence
+                    out[i][name] = _err(name, e)
+        else:                                       # batched path
+            batch_fn, single = _BATCH_ADAPTERS[name], _ADAPTERS[name]
+            starts = range(0, n, batch_size)
+            seq = progress(starts, name) if progress is not None else starts
+            for start in seq:
+                chunk = sentences[start:start + batch_size]
+                try:
+                    decs = batch_fn(chunk)
+                    if len(decs) != len(chunk):     # defensive: bad alignment -> fall back
+                        raise ValueError(f"{name} batch returned {len(decs)} for {len(chunk)}")
+                    for j, dc in enumerate(decs):
+                        out[start + j][name] = dc
+                except Exception:  # noqa -- isolate: retry the chunk one sentence at a time
+                    for j, s in enumerate(chunk):
+                        try:
+                            out[start + j][name] = single(s)
+                        except Exception as e:  # noqa
+                            out[start + j][name] = _err(name, e)
+        _unload(name)                               # free this model before loading the next
     return out
