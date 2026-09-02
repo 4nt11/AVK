@@ -27,3 +27,17 @@ def test_markdown_adapter_structure(tmp_path):
     assert any("WHEN a request arrives with an invalid" in u.text for u in units), \
         "second list item merged into the first"
     assert len({u.uid for u in units}) == len(units), "uid collision"
+
+
+def test_markdown_short_list_items_survive(tmp_path):
+    # A short EARS bullet is < the default min_chars (25) floor. It is deliberate
+    # content, not noise, so it must NOT be silently dropped.
+    (tmp_path / "reqs.md").write_text(
+        "## Reqs\n\n"
+        "- WHEN no key THEN 401.\n"          # 21 chars -- below min_chars
+        "- WHEN key expired THEN 403.\n",
+        encoding="utf-8",
+    )
+    texts = [u.text for u in MarkdownAdapter(str(tmp_path / "reqs.md"), "S").ingest()]
+    assert any("WHEN no key THEN 401" in t for t in texts), "short bullet dropped by min_chars"
+    assert any("WHEN key expired THEN 403" in t for t in texts)

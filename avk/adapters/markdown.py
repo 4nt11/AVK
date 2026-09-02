@@ -5,8 +5,10 @@ docs, threat models, ADRs, ...) as one or more .md files -> Units.
 Markdown carries its own structure in plain syntax (no DOM to walk), so this
 adapter is a small line-based state machine rather than a real parser:
 
-  * ATX headings ("#".."######") build a section path, e.g. "3/3.2" or the
-    slugged heading chain when headings aren't numbered.
+  * ATX headings ("#".."######") build a slugged section path, e.g.
+    "threat-model/api-key-handling". Numbered headings are slugged too, so
+    "## 3.2 API Key Handling" becomes ".../32-api-key-handling" (the dot is
+    not word-ish and drops out) -- these are heading slugs, not clause numbers.
   * Fenced code blocks (``` or ~~~) and table rows ("|...") are reference
     material, not prose -- dropped, same call the PDF/Docling adapter makes
     for tables (see README).
@@ -93,18 +95,21 @@ class MarkdownAdapter(SpecIngestAdapter):
         seen: set[tuple[str, str]] = set()
         in_code = False
         buf: list[str] = []
+        buf_is_list = False        # a list item is deliberate content; don't length-gate it
 
         def flush() -> Iterator[Unit]:
-            nonlocal buf
+            nonlocal buf, buf_is_list
             if not buf:
                 return
             txt = _clean_inline(" ".join(buf))
+            floor = 1 if buf_is_list else self.min_chars
             buf = []
-            if len(txt) < self.min_chars:
+            buf_is_list = False
+            if len(txt) < floor:
                 return
             anchor = f"{self.spec} {relname}#{section}"
             for sent, cs, ce in split_sentences(txt):
-                if len(sent) < self.min_chars or (section, sent) in seen:
+                if len(sent) < floor or (section, sent) in seen:
                     continue
                 seen.add((section, sent))
                 counters[section] = counters.get(section, 0) + 1
@@ -142,6 +147,7 @@ class MarkdownAdapter(SpecIngestAdapter):
             if li:
                 yield from flush()               # each list item is its own unit
                 buf.append(li.group(3))
+                buf_is_list = True
                 continue
             if bq:
                 buf.append(bq.group(1))

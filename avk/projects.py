@@ -61,6 +61,7 @@ def _build_adapter(t: dict) -> SpecIngestAdapter:
                                  workers=t.get("workers", 1))
     if kind == "markdown":
         return MarkdownAdapter(_p(t["dir"]), t.get("spec", "spec"),
+                               min_chars=t.get("min_chars", 25),
                                glob=t.get("glob", "**/*.md"))
     raise SystemExit(f"target has unknown kind '{kind}' (dicom|fhir|epub|pdf|markdown)")
 
