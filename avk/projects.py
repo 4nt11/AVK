@@ -16,6 +16,7 @@ from .adapters.dicom import DicomDocBookAdapter, DicomFindingsMatcher
 from .adapters.fhir import FhirHtmlAdapter, FhirFindingsMatcher
 from .adapters.epub import EpubClauseAdapter
 from .adapters.pdf import PdfDoclingAdapter
+from .adapters.markdown import MarkdownAdapter
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGETS = ROOT / "targets.toml"
@@ -30,6 +31,7 @@ class Project:
     findings_path: Path
     cases: str | None = None
     oracle_lexicons: list[str] = field(default_factory=lambda: ["wordnet"])
+    spec_lexicon: str | None = None      # path to this spec's harvested lexicon (for oracle="...,spec")
 
 
 def _p(path: str) -> str:
@@ -57,16 +59,19 @@ def _build_adapter(t: dict) -> SpecIngestAdapter:
                                  chunk=t.get("chunk", 250),
                                  page_batch_size=t.get("page_batch_size", 16),
                                  workers=t.get("workers", 1))
-    raise SystemExit(f"target has unknown kind '{kind}' (dicom|fhir|epub|pdf)")
+    if kind == "markdown":
+        return MarkdownAdapter(_p(t["dir"]), t.get("spec", "spec"),
+                               glob=t.get("glob", "**/*.md"))
+    raise SystemExit(f"target has unknown kind '{kind}' (dicom|fhir|epub|pdf|markdown)")
 
 
 def _parse_oracle(t: dict) -> list[str]:
     """`oracle = "wordnet"` (default) or `oracle = "wordnet,umls"` -> ordered lexicon list."""
     lex = [x.strip().lower() for x in t.get("oracle", "wordnet").split(",") if x.strip()]
     for x in lex:
-        if x not in ("wordnet", "umls"):
+        if x not in ("wordnet", "bastardized-umls", "umls", "spec"):
             raise SystemExit(f"target oracle '{t.get('oracle')}': unknown lexicon "
-                             f"'{x}' (wordnet|umls)")
+                             f"'{x}' (wordnet|bastardized-umls|umls|spec)")
     return lex or ["wordnet"]
 
 
@@ -91,8 +96,9 @@ def get_project(name: str) -> Project:
                          f"{', '.join(targets) or '(none)'}")
     t = targets[name]
     findings_path = ROOT / f"{name}_findings.json"
+    spec_lex = str((ROOT / t["spec_lexicon"]).resolve()) if t.get("spec_lexicon") else None
     return Project(name, _build_adapter(t), _build_matcher(t, findings_path),
-                   name, findings_path, t.get("cases"), _parse_oracle(t))
+                   name, findings_path, t.get("cases"), _parse_oracle(t), spec_lex)
 
 
 def list_projects() -> list[str]:
